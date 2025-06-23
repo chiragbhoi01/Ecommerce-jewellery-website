@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 import { motion } from "framer-motion";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { auth } from "../firebaseConfig";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 
 // Validation rules
 const validationRules = {
@@ -22,13 +23,21 @@ const validationRules = {
       message: "Password must be at least 6 characters",
     },
   },
+  confirmPassword: {
+    required: "Confirm Password is required",
+    match: {
+      message: "Passwords do not match",
+    },
+  },
 };
 
 // Memoize component for performance
-const LoginForm = React.memo(() => {
-  const [formData, setFormData] = useState({ email: "", password: "" });
+const RegisterForm = React.memo(() => {
+  const [formData, setFormData] = useState({ email: "", password: "", confirmPassword: "" });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
   // Validate form fields
@@ -42,6 +51,8 @@ const LoginForm = React.memo(() => {
         newErrors[field] = rule.pattern.message;
       } else if (rule.minLength && data[field].length < rule.minLength.value) {
         newErrors[field] = rule.minLength.message;
+      } else if (field === "confirmPassword" && data.password !== data.confirmPassword) {
+        newErrors[field] = rule.match.message;
       }
     });
     return newErrors;
@@ -75,32 +86,41 @@ const LoginForm = React.memo(() => {
       }
       setIsSubmitting(true);
       try {
-        await signInWithEmailAndPassword(auth, formData.email, formData.password);
-        toast.success("Login Successful! Redirecting...", {
+        await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+        toast.success("Registration successful! Welcome aboard!", {
           position: "top-center",
           theme: "colored",
           autoClose: 2000,
           onClose: () => navigate("/"),
         });
+        setFormData({ email: "", password: "", confirmPassword: "" });
       } catch (err) {
-        let errorMessage = "An error occurred during login";
+        let errorMessage = "An error occurred during registration";
         switch (err.code) {
-          case "auth/user-not-found":
-            errorMessage = "No user found with this email";
-            break;
-          case "auth/wrong-password":
-            errorMessage = "Incorrect password";
+          case "auth/email-already-in-use":
+            errorMessage = "This email is already registered";
+            toast.error(errorMessage, {
+              position: "top-center",
+              theme: "colored",
+              autoClose: 3000,
+              onClose: () => navigate("/login"),
+            });
             break;
           case "auth/invalid-email":
             errorMessage = "Invalid email format";
+            break;
+          case "auth/weak-password":
+            errorMessage = "Password is too weak";
             break;
           case "auth/too-many-requests":
             errorMessage = "Too many attempts, please try again later";
             break;
           default:
-            console.error("Login error:", err);
+            console.error("Registration error:", err);
         }
-        toast.error(errorMessage, { position: "top-center", theme: "colored" });
+        if (err.code !== "auth/email-already-in-use") {
+          toast.error(errorMessage, { position: "top-center", theme: "colored" });
+        }
       } finally {
         setIsSubmitting(false);
       }
@@ -127,7 +147,7 @@ const LoginForm = React.memo(() => {
         initial="initial"
         animate="animate"
       >
-        <h2 className="text-2xl sm:text-3xl font-bold text-center mb-6 text-gray-800">Login</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold text-center mb-6 text-gray-800">Register</h2>
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
@@ -151,12 +171,12 @@ const LoginForm = React.memo(() => {
               <p id="email-error" className="text-red-500 text-xs mt-1">{errors.email}</p>
             )}
           </div>
-          <div>
+          <div className="relative">
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
               Password
             </label>
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               id="password"
               name="password"
               value={formData.password}
@@ -169,19 +189,47 @@ const LoginForm = React.memo(() => {
               aria-describedby={errors.password ? "password-error" : undefined}
               required
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <FaEyeSlash /> : <FaEye />}
+            </button>
             {errors.password && (
               <p id="password-error" className="text-red-500 text-xs mt-1">{errors.password}</p>
             )}
           </div>
-          <div className="flex justify-end">
+          <div className="relative">
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+              Confirm Password
+            </label>
+            <input
+              type={showConfirmPassword ? "text" : "password"}
+              id="confirmPassword"
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              placeholder="Confirm your password"
+              className={`w-full px-4 py-2 border rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-indigo-500 outline-none ${
+                errors.confirmPassword ? "border-red-500" : "border-gray-300"
+              }`}
+              aria-invalid={!!errors.confirmPassword}
+              aria-describedby={errors.confirmPassword ? "confirmPassword-error" : undefined}
+              required
+            />
             <button
               type="button"
-              onClick={() => navigate("/forgot-password")}
-              className="text-sm text-indigo-600 hover:text-indigo-800 transition-colors duration-200"
-              aria-label="Forgot your password?"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
+              aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
             >
-              Forgot Password?
+              {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
             </button>
+            {errors.confirmPassword && (
+              <p id="confirmPassword-error" className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>
+            )}
           </div>
           <motion.button
             type="submit"
@@ -192,7 +240,7 @@ const LoginForm = React.memo(() => {
             className={`w-full px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors duration-200 text-sm sm:text-base flex items-center justify-center ${
               isSubmitting ? "opacity-50 cursor-not-allowed" : ""
             }`}
-            aria-label={isSubmitting ? "Logging in" : "Login"}
+            aria-label={isSubmitting ? "Registering" : "Register"}
           >
             {isSubmitting ? (
               <>
@@ -216,21 +264,21 @@ const LoginForm = React.memo(() => {
                     d="M4 12a8 8 0 018-8v8H4z"
                   ></path>
                 </svg>
-                Logging in...
+                Registering...
               </>
             ) : (
-              "Login"
+              "Register"
             )}
           </motion.button>
         </form>
         <p className="text-center text-sm mt-4">
-          Don’t have an account?{" "}
+          Already have an account?{" "}
           <button
-            onClick={() => navigate("/register")}
+            onClick={() => navigate("/login")}
             className="text-indigo-600 hover:text-indigo-800 underline transition-colors duration-200"
-            aria-label="Navigate to register page"
+            aria-label="Navigate to login page"
           >
-            Register here
+            Login here
           </button>
         </p>
         <ToastContainer
@@ -250,4 +298,4 @@ const LoginForm = React.memo(() => {
   );
 });
 
-export default LoginForm;
+export default RegisterForm;
