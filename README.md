@@ -159,4 +159,4 @@ Chirag Bhoi📍 Udaipur, Rajasthan📧 [mr.chiragbhoi2003@gmail.com](mailto:mr.c
 🔗 [GitHub](https://github.com/chiragbhoi01)  
 🌐 [Portfolio](https://chiragbhoimarshal.netlify.app/)
 
-Built with ❤️ by Chirag Bhoi for Miss Gypsy.
+Built with ❤️ by Chirag Bhoi for Miss Gypsy
